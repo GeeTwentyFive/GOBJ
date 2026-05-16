@@ -21,12 +21,13 @@ std::vector<GOBJ::Vertex> vertices;
 std::vector<int> indices;
 
 private:
-struct obj_index {int v_idx, vn_idx, vt_idx;}; // Indices into OBJ triplet arrays (v, vn, & vt), which combined, form one vertex
+struct OBJIndex {int v_idx, vn_idx, vt_idx;}; // Indices into OBJ triplet arrays (v, vn, & vt), which combined, form one vertex
 public:
 GOBJ(const std::filesystem::path& obj_path) {
+        // Parse OBJ:
         std::ifstream obj_file_stream(obj_path, std::ios::binary); if (!obj_file_stream.is_open()) throw std::runtime_error(std::string("ERROR: Failed to open '") + obj_path.string() + "'");
         std::vector<float> v, vn, vt; // OBJ vertex triplets; v = pos, vn = normal, vt = texcoord
-        std::vector<std::vector<obj_index>> faces; // Collection of faces (face = collection of vertices (in this case, in the form of OBJ's triplet indices)) which, when combined, make a mesh
+        std::vector<std::vector<OBJIndex>> faces; // Collection of faces (face = collection of vertices (in this case, in the form of OBJ's triplet indices)) which, when combined, make a mesh
         for (std::string line; std::getline(obj_file_stream, line);) { if (line.back() == '\r') line.pop_back(); if (line.empty()) continue;
                 const char* token = line.c_str(); token += strspn(token, " \t"); if (token[0] == '\0' || token[0] == '#') continue;
                 if (token[0] == 'v' && (token[1] == ' ' || token[1] == '\t')) { // Vertex
@@ -51,10 +52,10 @@ GOBJ(const std::filesystem::path& obj_path) {
                 }
                 if (token[0] == 'f' && (token[1] == ' ' || token[1] == '\t')) { // Face
                         token += 2; token += strspn(token, " \t");
-                        std::vector<obj_index> face;
+                        std::vector<OBJIndex> face;
                         const int v_count = v.size()/3; const int vn_count = vn.size()/3; const int vt_count = vt.size()/3; // for making index zero-base and supporting relative indexing
                         while (!(token[0] == '\r' || token[0] == '\n' || token[0] == '\0')) {
-                                obj_index oi; oi.v_idx = -1; oi.vn_idx = -1; oi.vt_idx = -1;
+                                OBJIndex oi; oi.v_idx = -1; oi.vn_idx = -1; oi.vt_idx = -1;
                                 oi.v_idx = atoi(token); if (oi.v_idx > 0) oi.v_idx -= 1; else if (oi.v_idx < 0) oi.v_idx = v_count + oi.v_idx;
                                 token += strcspn(token, "/ \t\r");
                                 if (token[0] == '/') { // not just vertex pos alone:
@@ -79,8 +80,11 @@ GOBJ(const std::filesystem::path& obj_path) {
                         faces.push_back(std::move(face));
                         continue;
                 }
-        }
+        } if (faces.empty()) throw std::runtime_error(std::string("ERROR: No faces found in '") + obj_path.string() + "'");
 
-        // TODO
+        // Assemble parsed OBJ data into mesh (+ triangulate) (+ generate normals if missing):
+        for (const std::vector<GOBJ::OBJIndex>& face : faces) {
+                // TODO
+        }
 }
 };
