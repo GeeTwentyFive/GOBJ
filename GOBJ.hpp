@@ -82,9 +82,18 @@ GOBJ(const std::filesystem::path& obj_path) {
                 }
         } if (faces.empty()) throw std::runtime_error(std::string("ERROR: No faces found in '") + obj_path.string() + "'");
 
-        // Assemble parsed OBJ data into mesh (+ triangulate) (+ generate normals if missing):
+        // Triangulate & assemble parsed OBJ data into mesh:
         for (const std::vector<GOBJ::OBJIndex>& face : faces) {
-                // TODO
+                OBJIndex i0 = face[0];
+                OBJIndex i1;
+                OBJIndex i2 = face[1];
+                for (size_t vtx = 2; vtx < face.size(); vtx++) {
+                        i1 = i2;
+                        i2 = face[vtx];
+                        // TODO
+                }
         }
+
+        // TODO: Generate normals (if missing)
 }
 };
