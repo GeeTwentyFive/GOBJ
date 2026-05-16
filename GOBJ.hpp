@@ -20,8 +20,7 @@ struct Vertex {
 std::vector<GOBJ::Vertex> vertices;
 std::vector<int> indices;
 
-//private:
-// TODO?
+private: struct obj_index {int v_idx, vn_idx, vt_idx;}; // Indices into obj triplet arrays (v, vn, & vt), which combined, form one vertex
 public:
 GOBJ(const std::filesystem::path& obj_path) {
         std::ifstream obj_file_stream(obj_path, std::ios::binary); if (!obj_file_stream.is_open()) throw std::runtime_error(std::string("ERROR: Failed to open '") + obj_path.string() + "'");
