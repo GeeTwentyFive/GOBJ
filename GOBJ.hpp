@@ -9,19 +9,28 @@
 #include <string>
 #include <string.h>
 #include <stdlib.h>
+#include <map>
 
-class GOBJ { public:
+struct GOBJ {
 struct Vertex {
-        float pos[3];
-        float normal[3];
-        float texcoord[2];
+        float pos[3] = {0.0f, 0.0f, 0.0f};
+        float normal[3] = {0.0f, 0.0f, 0.0f};
+        float texcoord[2] = {0.0f, 0.0f};
 };
 
 std::vector<GOBJ::Vertex> vertices;
 std::vector<int> indices;
 
 private:
-struct OBJIndex {int v_idx, vn_idx, vt_idx;}; // Indices into OBJ triplet arrays (v, vn, & vt), which combined, form one vertex
+struct OBJIndex {
+        int v_idx = -1, vn_idx = -1, vt_idx = -1; // Indices into OBJ triplet arrays (v, vn, & vt), which combined, form one vertex
+        bool operator<(const OBJIndex& b) const { // for std::map
+                if (this->v_idx != b.v_idx) return (this->v_idx < b.v_idx);
+                if (this->vn_idx != b.vn_idx) return (this->vn_idx < b.vn_idx);
+                if (this->vt_idx != b.vt_idx) return (this->vt_idx < b.vt_idx);
+                return false;
+        }
+};
 public:
 GOBJ(const std::filesystem::path& obj_path) {
         // Parse OBJ:
@@ -55,7 +64,7 @@ GOBJ(const std::filesystem::path& obj_path) {
                         std::vector<OBJIndex> face;
                         const int v_count = v.size()/3; const int vn_count = vn.size()/3; const int vt_count = vt.size()/3; // for making index zero-base and supporting relative indexing
                         while (!(token[0] == '\r' || token[0] == '\n' || token[0] == '\0')) {
-                                OBJIndex oi; oi.v_idx = -1; oi.vn_idx = -1; oi.vt_idx = -1;
+                                OBJIndex oi;
                                 oi.v_idx = atoi(token); if (oi.v_idx > 0) oi.v_idx -= 1; else if (oi.v_idx < 0) oi.v_idx = v_count + oi.v_idx;
                                 token += strcspn(token, "/ \t\r");
                                 if (token[0] == '/') { // not just vertex pos alone:
@@ -83,6 +92,7 @@ GOBJ(const std::filesystem::path& obj_path) {
         } if (faces.empty()) throw std::runtime_error(std::string("ERROR: No faces found in '") + obj_path.string() + "'");
 
         // Triangulate & assemble parsed OBJ data into mesh:
+        std::map<GOBJ::OBJIndex, int> cache; // For indices (re-using vertices)
         for (const std::vector<GOBJ::OBJIndex>& face : faces) {
                 OBJIndex i0 = face[0];
                 OBJIndex i1;
@@ -90,10 +100,67 @@ GOBJ(const std::filesystem::path& obj_path) {
                 for (size_t vtx = 2; vtx < face.size(); vtx++) {
                         i1 = i2;
                         i2 = face[vtx];
-                        // TODO
+
+                        const std::map<OBJIndex, int>::iterator it0 = cache.find(i0);
+                        if (it0 != cache.end()) indices.push_back(it0->second);
+                        else {
+                                vertices.emplace_back();
+                                vertices.back().pos[0] = v[3*i0.v_idx + 0];
+                                vertices.back().pos[1] = v[3*i0.v_idx + 1];
+                                vertices.back().pos[2] = v[3*i0.v_idx + 2];
+                                if (i0.vn_idx >= 0 && (3*i0.vn_idx + 2) < vn.size()) {
+                                        vertices.back().normal[0] = vn[3*i0.vn_idx + 0];
+                                        vertices.back().normal[1] = vn[3*i0.vn_idx + 1];
+                                        vertices.back().normal[2] = vn[3*i0.vn_idx + 2];
+                                }
+                                if (i0.vt_idx >= 0 && (2*i0.vt_idx + 1) < vt.size()) {
+                                        vertices.back().texcoord[0] = vt[2*i0.vt_idx + 0];
+                                        vertices.back().texcoord[1] = vt[2*i0.vt_idx + 1];
+                                }
+                                indices.push_back(vertices.size() - 1);
+                                cache[i0] = vertices.size() - 1;
+                        }
+
+                        const std::map<OBJIndex, int>::iterator it1 = cache.find(i1);
+                        if (it1 != cache.end()) indices.push_back(it1->second);
+                        else {
+                                vertices.emplace_back();
+                                vertices.back().pos[0] = v[3*i1.v_idx + 0];
+                                vertices.back().pos[1] = v[3*i1.v_idx + 1];
+                                vertices.back().pos[2] = v[3*i1.v_idx + 2];
+                                if (i1.vn_idx >= 0 && (3*i1.vn_idx + 2) < vn.size()) {
+                                        vertices.back().normal[0] = vn[3*i1.vn_idx + 0];
+                                        vertices.back().normal[1] = vn[3*i1.vn_idx + 1];
+                                        vertices.back().normal[2] = vn[3*i1.vn_idx + 2];
+                                }
+                                if (i1.vt_idx >= 0 && (2*i1.vt_idx + 1) < vt.size()) {
+                                        vertices.back().texcoord[0] = vt[2*i1.vt_idx + 0];
+                                        vertices.back().texcoord[1] = vt[2*i1.vt_idx + 1];
+                                }
+                                indices.push_back(vertices.size() - 1);
+                                cache[i1] = vertices.size() - 1;
+                        }
+
+                        const std::map<OBJIndex, int>::iterator it2 = cache.find(i2);
+                        if (it2 != cache.end()) indices.push_back(it2->second);
+                        else {
+                                vertices.emplace_back();
+                                vertices.back().pos[0] = v[3*i2.v_idx + 0];
+                                vertices.back().pos[1] = v[3*i2.v_idx + 1];
+                                vertices.back().pos[2] = v[3*i2.v_idx + 2];
+                                if (i2.vn_idx >= 0 && (3*i2.vn_idx + 2) < vn.size()) {
+                                        vertices.back().normal[0] = vn[3*i2.vn_idx + 0];
+                                        vertices.back().normal[1] = vn[3*i2.vn_idx + 1];
+                                        vertices.back().normal[2] = vn[3*i2.vn_idx + 2];
+                                }
+                                if (i2.vt_idx >= 0 && (2*i2.vt_idx + 1) < vt.size()) {
+                                        vertices.back().texcoord[0] = vt[2*i2.vt_idx + 0];
+                                        vertices.back().texcoord[1] = vt[2*i2.vt_idx + 1];
+                                }
+                                indices.push_back(vertices.size() - 1);
+                                cache[i2] = vertices.size() - 1;
+                        }
                 }
         }
-
-        // TODO: Generate normals (if missing)
 }
 };
