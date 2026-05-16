@@ -19,11 +19,11 @@ struct Vertex {
 };
 
 std::vector<GOBJ::Vertex> vertices;
-std::vector<int> indices;
+std::vector<int32_t> indices;
 
 private:
 struct OBJIndex {
-        int v_idx = -1, vn_idx = -1, vt_idx = -1; // Indices into OBJ triplet arrays (v, vn, & vt), which combined, form one vertex
+        int32_t v_idx = -1, vn_idx = -1, vt_idx = -1; // Indices into OBJ triplet arrays (v, vn, & vt), which combined, form one vertex
         bool operator<(const OBJIndex& b) const { // for std::map
                 if (this->v_idx != b.v_idx) return (this->v_idx < b.v_idx);
                 if (this->vn_idx != b.vn_idx) return (this->vn_idx < b.vn_idx);
@@ -37,32 +37,33 @@ GOBJ(const std::filesystem::path& obj_path) {
         std::ifstream obj_file_stream(obj_path, std::ios::binary); if (!obj_file_stream.is_open()) throw std::runtime_error(std::string("ERROR: Failed to open '") + obj_path.string() + "'");
         std::vector<float> v, vn, vt; // OBJ vertex triplets; v = pos, vn = normal, vt = texcoord
         std::vector<std::vector<OBJIndex>> faces; // Collection of faces (face = collection of vertices (in this case, in the form of OBJ's triplet indices)) which, when combined, make a mesh
-        for (std::string line; std::getline(obj_file_stream, line);) { if (line.back() == '\r') line.pop_back(); if (line.empty()) continue;
+        for (std::string line; std::getline(obj_file_stream, line);) { if (line.empty()) continue; if (line.back() == '\r') line.pop_back();
                 const char* token = line.c_str(); token += strspn(token, " \t"); if (token[0] == '\0' || token[0] == '#') continue;
                 if (token[0] == 'v' && (token[1] == ' ' || token[1] == '\t')) { // Vertex
                         token += 2; token += strspn(token, " \t");
-                        v.push_back((float)atof(token)); token += strcspn(token, " \t\r");
-                        v.push_back((float)atof(token)); token += strcspn(token, " \t\r");
-                        v.push_back((float)atof(token)); token += strcspn(token, " \t\r");
+                        v.push_back((float)atof(token)); token += strcspn(token, " \t\r"); token += strspn(token, " \t");
+                        v.push_back((float)atof(token)); token += strcspn(token, " \t\r"); token += strspn(token, " \t");
+                        v.push_back((float)atof(token)); token += strcspn(token, " \t\r"); token += strspn(token, " \t");
                         continue;
                 }
                 if (token[0] == 'v' && token[1] == 'n' && (token[2] == ' ' || token[2] == '\t')) { // Normal
                         token += 3; token += strspn(token, " \t");
-                        vn.push_back((float)atof(token)); token += strcspn(token, " \t\r");
-                        vn.push_back((float)atof(token)); token += strcspn(token, " \t\r");
-                        vn.push_back((float)atof(token)); token += strcspn(token, " \t\r");
+                        vn.push_back((float)atof(token)); token += strcspn(token, " \t\r"); token += strspn(token, " \t");
+                        vn.push_back((float)atof(token)); token += strcspn(token, " \t\r"); token += strspn(token, " \t");
+                        vn.push_back((float)atof(token)); token += strcspn(token, " \t\r"); token += strspn(token, " \t");
                         continue;
                 }
                 if (token[0] == 'v' && token[1] == 't' && (token[2] == ' ' || token[2] == '\t')) { // Texcoord
                         token += 3; token += strspn(token, " \t");
-                        vt.push_back((float)atof(token)); token += strcspn(token, " \t\r");
-                        vt.push_back((float)atof(token)); token += strcspn(token, " \t\r");
+                        vt.push_back((float)atof(token)); token += strcspn(token, " \t\r"); token += strspn(token, " \t");
+                        vt.push_back((float)atof(token)); token += strcspn(token, " \t\r"); token += strspn(token, " \t");
+                        token += strcspn(token, " \t\r"); // skip 'w'
                         continue;
                 }
                 if (token[0] == 'f' && (token[1] == ' ' || token[1] == '\t')) { // Face
                         token += 2; token += strspn(token, " \t");
                         std::vector<OBJIndex> face;
-                        const int v_count = v.size()/3; const int vn_count = vn.size()/3; const int vt_count = vt.size()/3; // for making index zero-base and supporting relative indexing
+                        const int32_t v_count = v.size()/3; const int32_t vn_count = vn.size()/3; const int32_t vt_count = vt.size()/3; // for making index zero-base and supporting relative indexing
                         while (!(token[0] == '\r' || token[0] == '\n' || token[0] == '\0')) {
                                 OBJIndex oi;
                                 oi.v_idx = atoi(token); if (oi.v_idx > 0) oi.v_idx -= 1; else if (oi.v_idx < 0) oi.v_idx = v_count + oi.v_idx;
@@ -71,14 +72,14 @@ GOBJ(const std::filesystem::path& obj_path) {
                                         token++;
                                         if (token[0] == '/') { // 'v//vn' (vertex + normal, no texcoord)
                                                 token++;
-                                                oi.vn_idx = atoi(token); if (oi.vn_idx > 0) oi.vn_idx -= 1; else if (oi.vn_idx < 0) oi.vn_idx = v_count + oi.vn_idx;
+                                                oi.vn_idx = atoi(token); if (oi.vn_idx > 0) oi.vn_idx -= 1; else if (oi.vn_idx < 0) oi.vn_idx = vn_count + oi.vn_idx;
                                                 token += strcspn(token, "/ \t\r");
                                         } else { // 'v/vt' or 'v/vt/vn'
-                                                oi.vt_idx = atoi(token); if (oi.vt_idx > 0) oi.vt_idx -= 1; else if (oi.vt_idx < 0) oi.vt_idx = v_count + oi.vt_idx;
+                                                oi.vt_idx = atoi(token); if (oi.vt_idx > 0) oi.vt_idx -= 1; else if (oi.vt_idx < 0) oi.vt_idx = vt_count + oi.vt_idx;
                                                 token += strcspn(token, "/ \t\r");
                                                 if (token[0] == '/') { // 'v/vt/vn' (vertex + texcoord + normal)
                                                         token++;
-                                                        oi.vn_idx = atoi(token); if (oi.vn_idx > 0) oi.vn_idx -= 1; else if (oi.vn_idx < 0) oi.vn_idx = v_count + oi.vn_idx;
+                                                        oi.vn_idx = atoi(token); if (oi.vn_idx > 0) oi.vn_idx -= 1; else if (oi.vn_idx < 0) oi.vn_idx = vn_count + oi.vn_idx;
                                                         token += strcspn(token, "/ \t\r");
                                                 }
                                         }
@@ -92,8 +93,8 @@ GOBJ(const std::filesystem::path& obj_path) {
         } if (faces.empty()) throw std::runtime_error(std::string("ERROR: No faces found in '") + obj_path.string() + "'");
 
         // Triangulate & assemble parsed OBJ data into mesh:
-        std::map<GOBJ::OBJIndex, int> cache; // For indices (re-using vertices)
-        for (const std::vector<GOBJ::OBJIndex>& face : faces) {
+        std::map<GOBJ::OBJIndex, int32_t> cache; // For indices (re-using vertices)
+        for (const std::vector<GOBJ::OBJIndex>& face : faces) { if (face.size() < 3) continue;
                 OBJIndex i0 = face[0];
                 OBJIndex i1;
                 OBJIndex i2 = face[1];
@@ -101,7 +102,7 @@ GOBJ(const std::filesystem::path& obj_path) {
                         i1 = i2;
                         i2 = face[vtx];
 
-                        const std::map<OBJIndex, int>::iterator it0 = cache.find(i0);
+                        const std::map<OBJIndex, int32_t>::iterator it0 = cache.find(i0);
                         if (it0 != cache.end()) indices.push_back(it0->second);
                         else {
                                 vertices.emplace_back();
@@ -121,7 +122,7 @@ GOBJ(const std::filesystem::path& obj_path) {
                                 cache[i0] = vertices.size() - 1;
                         }
 
-                        const std::map<OBJIndex, int>::iterator it1 = cache.find(i1);
+                        const std::map<OBJIndex, int32_t>::iterator it1 = cache.find(i1);
                         if (it1 != cache.end()) indices.push_back(it1->second);
                         else {
                                 vertices.emplace_back();
@@ -141,7 +142,7 @@ GOBJ(const std::filesystem::path& obj_path) {
                                 cache[i1] = vertices.size() - 1;
                         }
 
-                        const std::map<OBJIndex, int>::iterator it2 = cache.find(i2);
+                        const std::map<OBJIndex, int32_t>::iterator it2 = cache.find(i2);
                         if (it2 != cache.end()) indices.push_back(it2->second);
                         else {
                                 vertices.emplace_back();
