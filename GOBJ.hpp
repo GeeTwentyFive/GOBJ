@@ -22,11 +22,11 @@ std::vector<int> indices;
 
 private:
 struct obj_index {int v_idx, vn_idx, vt_idx;}; // Indices into OBJ triplet arrays (v, vn, & vt), which combined, form one vertex
-std::vector<std::vector<obj_index>> faces; // Collection of faces (face = collection of vertices (in this case, in the form of OBJ's triplet indices)) which, when combined, make a mesh
 public:
 GOBJ(const std::filesystem::path& obj_path) {
         std::ifstream obj_file_stream(obj_path, std::ios::binary); if (!obj_file_stream.is_open()) throw std::runtime_error(std::string("ERROR: Failed to open '") + obj_path.string() + "'");
-        std::vector<float> v, vn, vt;
+        std::vector<float> v, vn, vt; // OBJ vertex triplets; v = pos, vn = normal, vt = texcoord
+        std::vector<std::vector<obj_index>> faces; // Collection of faces (face = collection of vertices (in this case, in the form of OBJ's triplet indices)) which, when combined, make a mesh
         for (std::string line; std::getline(obj_file_stream, line);) { if (line.back() == '\r') line.pop_back(); if (line.empty()) continue;
                 const char* token = line.c_str(); token += strspn(token, " \t"); if (token[0] == '\0' || token[0] == '#') continue;
                 if (token[0] == 'v' && (token[1] == ' ' || token[1] == '\t')) { // Vertex
