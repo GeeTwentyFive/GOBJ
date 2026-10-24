@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _GOBJ_H
+#define _GOBJ_H
 
 #include <vector>
 #include <memory>
@@ -165,3 +166,5 @@ GOBJ(const std::filesystem::path& obj_path) {
         }
 }
 };
+
+#endif // _GOBJ_H
